@@ -392,6 +392,18 @@ function rSort(){
     const memo=st['메모'];
     if(memo){const md=memo.replace(/\n/g,' ').slice(0,30);h+='<div class="mp" onclick="eMemo(\''+p+'\',\''+b+'\')">' +'📝 '+md+(memo.length>30?'…':'')+'</div>';}
     else h+='<div class="mp" onclick="eMemo(\''+p+'\',\''+b+'\')" style="color:#ccc">📝 메모 추가</div>';
+    // 외주업체 메모/반납(보기)
+    const pm=getPinMemo(p,b);
+    const pmTxt=(pm.memo||'').replace(/\n/g,' ').trim();
+    const rmTxt=(pm.returnMemo||'').replace(/\n/g,' ').trim();
+    const hasPm = pm.returned || pmTxt || rmTxt;
+    if(hasPm){
+      const tag=(pm.returned?'↩':'')+((pmTxt||rmTxt)?'📝':'');
+      const prev = (pmTxt||rmTxt||'(내용없음)').slice(0,30);
+      h+='<div class="mp" onclick="openPinMemoViewer(\''+esc_(p)+'\',\''+esc_(b)+'\')">'+tag+' 외주메모: '+prev+((pmTxt||rmTxt).length>30?'…':'')+'</div>';
+    }else{
+      h+='<div class="mp" onclick="openPinMemoViewer(\''+esc_(p)+'\',\''+esc_(b)+'\')" style="color:#ccc">📝 외주메모 없음</div>';
+    }
     h+='</div>';
   });
   document.getElementById('sList').innerHTML=h||'<div class="loading">표시할 항목 없음</div>';
