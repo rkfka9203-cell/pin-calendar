@@ -8,6 +8,28 @@
 <meta name="theme-color" content="#1565C0">
 <title>외주 핀 생산관리</title>
 <link rel="manifest" href="manifest.json">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Apple SD Gothic Neo','맑은 고딕',sans-serif;background:#f5f5f5;-webkit-tap-highlight-color:transparent}
+.header{background:#1565C0;color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.header h1{font-size:15px;font-weight:700}
+.sync-btn{background:rgba(255,255,255,.2);border:none;color:#fff;padding:6px 14px;border-radius:20px;font-size:13px;cursor:pointer}
+.status-bar{padding:4px 12px;background:#E3F2FD;font-size:11px;color:#1565C0;text-align:center}
+.tab-bar{position:fixed;bottom:0;left:0;right:0;background:#fff;display:flex;border-top:1px solid #e0e0e0;z-index:100;padding-bottom:env(safe-area-inset-bottom,0)}
+.tab-bar .tab{flex:1;text-align:center;padding:8px 0 6px;font-size:11px;color:#999;cursor:pointer;transition:color .2s}
+.tab-bar .tab.active{color:#1565C0;font-weight:700}
+.tab-bar .tab .icon{font-size:20px;display:block}
+.content{padding-bottom:64px}
+.view{display:none}.view.active{display:block}
+.cal-nav{display:flex;align-items:center;justify-content:center;padding:10px;background:#fff;gap:4px}
+.cal-nav button{background:none;border:none;font-size:18px;padding:6px 14px;cursor:pointer;border-radius:8px}
+.cal-nav button:active{background:#e0e0e0}
+.cal-nav .month-label{font-size:15px;font-weight:700;min-width:110px;text-align:center}
+.cal-nav .today-btn{font-size:12px;padding:5px 10px;background:#e0e0e0;border-radius:14px;border:none;cursor:pointer}
+/* HTML 기능 버튼 (전체/1공장/2공장/가이드) */
+.fac-bar{padding:8px 10px;background:#fff;display:flex;gap:6px;align-items:center;position:sticky;top:48px;z-index:55;border-bottom:1px solid #e0e0e0}
+.fac-btn{border:1px solid #ddd;background:#f5f5f5;border-radius:16px;padding:6px 10px;font-size:12px;cursor:pointer;user-select:none}
+.fac-btn.on{background:#1565C0;color:#fff;border-color:#1565C0;font-weight:700}
 .fac-btn.guide{margin-left:auto;background:#fff}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:#ddd;margin:0 4px}
 .cal-hdr{background:#E8EAF6;text-align:center;padding:5px 0;font-size:11px;font-weight:700;color:#333}
@@ -128,6 +150,31 @@ const WO_ID='1_3PakMet-BwSVLAgnqHN5CS336hrs-L266Rc_aIFFZI';
 const CAPA={'1공장':20000,'2공장':80000};
 let raw=[],sorted=[],stData={},cY=new Date().getFullYear(),cM=new Date().getMonth();
 let facFilter=''; // ''=전체, '1공장', '2공장'
+// ================================
+// 외주업체 입력: 핀별 메모/반납 (Google Sheets에 별도 key로 저장)
+// - Apps Script 코드 추가 수정 없이 사용(action=set)
+// - key: PINMEMO||제품명||기초로트
+function pinKey(p,l){ return 'PINMEMO||'+p+'||'+l; }
+function getPinMemo(p,l){
+  const k=pinKey(p,l);
+  const v=stData[k];
+  if(!v) return {memo:'',returned:false,returnMemo:'',updatedAt:''};
+  try{ const o=(typeof v==='string')?JSON.parse(v):v; return {memo:o.memo||'',returned:!!o.returned,returnMemo:o.returnMemo||'',updatedAt:o.updatedAt||''}; }
+  catch(e){ return {memo:'',returned:false,returnMemo:'',updatedAt:''}; }
+}
+async function setPinMemo(p,l,memo,returned,returnMemo){
+  const payload={action:'set',key:pinKey(p,l),value:JSON.stringify({memo:memo||'',returned:!!returned,returnMemo:returnMemo||'',updatedAt:new Date().toISOString()})};
+  // CORS/네트워크 환경에서 POST 응답을 읽지 못하는 경우가 있어, "전송만" 수행합니다.
+  // 저장 성공 여부는 저장 후 loadSt()로 다시 불러와 화면에서 확인합니다.
+  await fetch(GS_URL,{
+    method:'POST',
+    mode:'no-cors',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify(payload)
+  });
+}
+function esc_(s){ return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+// ================================
 function setFacFilter(v){
   facFilter=v;
   // 캘린더/소팅 둘 다 버튼 상태 동기화
@@ -175,7 +222,11 @@ async function loadSt(){
   const b=await r.json();
   if(b.status==='ok'&&b.data){
     const v=b.data['__outsource_status__'];
-    if(v)stData=typeof v==='string'?JSON.parse(v):v;
+    stData = v ? (typeof v==='string'?JSON.parse(v):v) : {};
+    // PINMEMO||... 는 getAll의 최상위 key로 들어오므로 같이 합쳐줌
+    for(const k in b.data){
+      if(k && k.startsWith('PINMEMO||')) stData[k]=b.data[k];
+    }
   }
 }
 async function saveSt(){
@@ -250,7 +301,9 @@ function rCal(){
             h+='<div class="capa-b"><div class="fill" style="width:'+Math.min(rt,100)+'%;background:'+cl+'"></div></div>';});
           const items=[...info.i1.map(i=>({...i,f:'f1'})),...info.i2.map(i=>({...i,f:'f2'}))];
           items.slice(0,3).forEach(it=>{const nm=it.p.length>7?it.p.slice(0,7)+'…':it.p;
-            h+='<div class="cal-it '+it.f+(it.u?' urg':'')+(it.d?' done':'')+'">'+(it.u?'🚨':'')+nm+' '+it.q.toLocaleString()+'</div>';});
+            const pm=getPinMemo(it.p,it.b);
+            const tag=(pm.returned?'↩':'')+(((pm.memo&&pm.memo.trim())||(pm.returnMemo&&pm.returnMemo.trim()))?'📝':'');
+            h+='<div class="cal-it '+it.f+(it.u?' urg':'')+(it.d?' done':'')+'">'+(it.u?'🚨':'')+tag+nm+' '+it.q.toLocaleString()+'</div>';});
           if(items.length>3)h+='<div style="font-size:8px;color:#999">+'+(items.length-3)+'</div>';
         }
         h+='</div>';day++;
@@ -258,6 +311,30 @@ function rCal(){
     }
   }
   h+='</div>';document.getElementById('calG').innerHTML=h;
+}
+function openPinMemoViewer(p,l){
+  const st=getPinMemo(p,l);
+  const hasMemo=(st.memo&&st.memo.trim())||(st.returnMemo&&st.returnMemo.trim());
+  const h=
+    '<h3>📝 외주 메모 / 반납(보기)</h3>'+
+    '<div class="sub"><strong>'+p+'</strong> / '+l+'</div>'+
+    '<div style="margin:10px 0;font-size:13px">'+
+      '<strong>반납 여부:</strong> '+(st.returned?'예(↩)':'아니오')+
+    '</div>'+
+    '<div style="margin:8px 0;color:#666;font-size:12px">반납 메모</div>'+
+    '<div style="white-space:pre-wrap;background:#f5f5f5;border:1px solid #eee;border-radius:10px;padding:10px;font-size:13px">'+
+      (st.returnMemo?st.returnMemo:'(없음)')+
+    '</div>'+
+    '<div style="margin:10px 0 8px;color:#666;font-size:12px">일반 메모</div>'+
+    '<div style="white-space:pre-wrap;background:#f5f5f5;border:1px solid #eee;border-radius:10px;padding:10px;font-size:13px">'+
+      (st.memo?st.memo:'(없음)')+
+    '</div>'+
+    (st.updatedAt?('<div style="margin-top:8px;color:#999;font-size:11px">마지막 수정: '+st.updatedAt+'</div>'):'')+
+    (!hasMemo && !st.returned ? '<div style="margin-top:8px;color:#999;font-size:12px">저장된 외주 메모/반납 정보가 없습니다.</div>' : '')+
+    '<div class="brow">'+
+      '<button class="btn bc" onclick="clM()">닫기</button>'+
+    '</div>';
+  shM(h);
 }
 function showDay(dk){
   const sc=getSch(),info=sc[dk];if(!info)return;
@@ -269,9 +346,12 @@ function showDay(dk){
     h+='<div class="capa-b"><div class="fill" style="width:'+Math.min(rt,100)+'%;background:'+cl+'"></div></div></div>';});
   h+='<div style="margin-top:10px">';
   items.forEach(it=>{const cl=it.fc==='1공장'?'#1565C0':'#2E7D32';
-    h+='<div style="padding:8px;margin:4px 0;border-left:3px solid '+cl+';background:#fafafa;border-radius:6px;font-size:13px">';
-    h+=(it.u?'🚨 ':'')+(it.d?'✅ ':'')+'<strong>'+it.p+'</strong> ('+it.b+') <span style="color:'+cl+'">'+it.q.toLocaleString()+'개</span>';
-    if(it.e)h+=' 📦'+it.e;
+    const pm=getPinMemo(it.p,it.b);
+    const hasMemo=(pm.memo&&pm.memo.trim())||(pm.returnMemo&&pm.returnMemo.trim());
+    const badges=(pm.returned?' <span style="font-size:12px;color:#D32F2F">↩반납</span>':'')+(hasMemo?' <span style="font-size:12px;color:#555">📝</span>':'');
+    h+='<div onclick="openPinMemoViewer(\''+esc_(it.p)+'\',\''+esc_(it.b)+'\')" style="padding:10px;margin:6px 0;border-left:3px solid '+cl+';background:#fafafa;border-radius:10px;font-size:13px;cursor:pointer">';
+    h+=(it.u?'🚨 ':'')+(it.d?'✅ ':'')+'<strong>'+it.p+'</strong> ('+it.b+') <span style="color:'+cl+'">'+it.q.toLocaleString()+'개</span>'+badges;
+    if(it.e)h+=' <span style="color:#666">📦'+it.e+'</span>';
     h+='</div>';});
   h+='</div><div class="brow"><button class="btn bc" onclick="clM()">닫기</button></div>';
   shM(h);
@@ -361,4 +441,3 @@ loadAll();
 </script>
 </body>
 </html>
-
