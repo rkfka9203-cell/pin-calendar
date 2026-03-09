@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1565C0">
+<title>외주 핀 생산관리</title>
+<link rel="manifest" href="manifest.json">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Apple SD Gothic Neo','맑은 고딕',sans-serif;background:#f5f5f5;-webkit-tap-highlight-color:transparent}
+.header{background:#1565C0;color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.header h1{font-size:15px;font-weight:700}
+.sync-btn{background:rgba(255,255,255,.2);border:none;color:#fff;padding:6px 14px;border-radius:20px;font-size:13px;cursor:pointer}
+.status-bar{padding:4px 12px;background:#E3F2FD;font-size:11px;color:#1565C0;text-align:center}
+.tab-bar{position:fixed;bottom:0;left:0;right:0;background:#fff;display:flex;border-top:1px solid #e0e0e0;z-index:100;padding-bottom:env(safe-area-inset-bottom,0)}
+.tab-bar .tab{flex:1;text-align:center;padding:8px 0 6px;font-size:11px;color:#999;cursor:pointer;transition:color .2s}
+.tab-bar .tab.active{color:#1565C0;font-weight:700}
+.tab-bar .tab .icon{font-size:20px;display:block}
+.content{padding-bottom:64px}
+.view{display:none}.view.active{display:block}
+.cal-nav{display:flex;align-items:center;justify-content:center;padding:10px;background:#fff;gap:4px}
+.cal-nav button{background:none;border:none;font-size:18px;padding:6px 14px;cursor:pointer;border-radius:8px}
+.cal-nav button:active{background:#e0e0e0}
+.cal-nav .month-label{font-size:15px;font-weight:700;min-width:110px;text-align:center}
+.cal-nav .today-btn{font-size:12px;padding:5px 10px;background:#e0e0e0;border-radius:14px;border:none;cursor:pointer}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:#ddd;margin:0 4px}
+.cal-hdr{background:#E8EAF6;text-align:center;padding:5px 0;font-size:11px;font-weight:700;color:#333}
+.cal-hdr.we{background:#FFEBEE;color:#B71C1C}
+.cal-c{background:#fff;min-height:72px;padding:3px;font-size:10px;overflow:hidden;cursor:pointer}
+.cal-c:active{background:#f0f0f0}
+.cal-c .dn{font-weight:700;font-size:12px;margin-bottom:1px}
+.cal-c.today .dn{color:#1565C0}
+.cal-c.empty{background:#f5f5f5;cursor:default}
+.capa-b{height:5px;background:#E0E0E0;border-radius:3px;margin:1px 0;overflow:hidden}
+.capa-b .fill{height:100%;border-radius:3px}
+.cal-it{font-size:9px;padding:1px 3px;margin:1px 0;border-radius:2px;border-left:2px solid;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cal-it.f1{border-left-color:#1565C0;background:#E3F2FD}
+.cal-it.f2{border-left-color:#2E7D32;background:#E8F5E9}
+.cal-it.urg{background:#FFEBEE!important}
+.cal-it.done{opacity:.4;text-decoration:line-through}
+.sf{padding:8px 10px;background:#fff;display:flex;gap:6px;flex-wrap:wrap;align-items:center;position:sticky;top:48px;z-index:50;border-bottom:1px solid #e0e0e0}
+.sf input,.sf select{padding:7px 8px;border:1px solid #ddd;border-radius:8px;font-size:13px;outline:none}
+.sf input{flex:1;min-width:80px}.sf select{min-width:75px}
+.sf .chk{font-size:12px;white-space:nowrap;display:flex;align-items:center;gap:3px}
+.si{padding:5px 10px;background:#f5f5f5;font-size:11px;color:#666}
+.sl{padding:0 6px}
+.si-card{background:#fff;border-radius:10px;margin:6px 0;padding:12px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.si-card.urg{border-left:4px solid #F44336}
+.si-card.comp{opacity:.45}
+.si-card .top{display:flex;justify-content:space-between;align-items:center}
+.si-card .pn{font-weight:700;font-size:14px}
+.si-card .li{color:#888;font-size:12px;margin-left:4px}
+.si-card .qt{color:#1565C0;font-weight:700;font-size:13px}
+.sr{display:flex;gap:5px;margin-top:8px;flex-wrap:wrap}
+.sc{padding:4px 10px;border-radius:16px;font-size:11px;border:1px solid #ddd;background:#f5f5f5;cursor:pointer;user-select:none;transition:all .15s}
+.sc:active{transform:scale(.95)}
+.sc.on{background:#1565C0;color:#fff;border-color:#1565C0}
+.sc.on.spc{background:#FF9800;border-color:#FF9800}
+.sc.on.oqc{background:#F44336;border-color:#F44336}
+.sc.on.etc{background:#9E9E9E;border-color:#9E9E9E}
+.sc.on.dn{background:#4CAF50;border-color:#4CAF50}
+.dr{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.df{padding:4px 8px;background:#f5f5f5;border-radius:6px;font-size:11px;color:#333;cursor:pointer}
+.df.empty{color:#bbb}
+.df:active{background:#e0e0e0}
+.mp{font-size:11px;color:#888;margin-top:4px;cursor:pointer}
+.mp:active{color:#555}
+.mo{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:200}
+.mo.on{display:flex;align-items:flex-end;justify-content:center}
+.md{background:#fff;width:100%;max-width:500px;border-radius:16px 16px 0 0;padding:20px 16px 24px;max-height:80vh;overflow-y:auto}
+.md h3{margin-bottom:10px;font-size:16px}
+.md .sub{color:#666;font-size:13px;margin-bottom:12px}
+.btn{padding:10px 18px;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer}
+.btn:active{opacity:.8}
+.bp{background:#1565C0;color:#fff}
+.bd{background:#F44336;color:#fff}
+.bc{background:#e0e0e0;color:#333}
+.md textarea{width:100%;min-height:100px;padding:10px;border:1px solid #ddd;border-radius:10px;font-size:14px;resize:vertical;font-family:inherit}
+.md input[type=date],.md input[type=number]{width:100%;padding:10px;border:1px solid #ddd;border-radius:10px;font-size:14px}
+.brow{display:flex;gap:8px;margin-top:16px;justify-content:center}
+.loading{text-align:center;padding:40px;color:#999}
+.spinner{display:inline-block;width:28px;height:28px;border:3px solid #e0e0e0;border-top-color:#1565C0;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="header">
+<h1>🏭 외주 핀 생산관리</h1>
+<button class="sync-btn" onclick="loadAll()">🔄 동기화</button>
+</div>
+<div class="status-bar" id="sbar">데이터 로드 중...</div>
+<div class="content">
+<div class="view active" id="vCal">
+<div class="cal-nav">
+<button onclick="calP()">◀</button>
+<span class="month-label" id="calLbl"></span>
+<button onclick="calN()">▶</button>
+<button class="today-btn" onclick="calT()">오늘</button>
+</div>
+<div id="calG"></div>
+</div>
+<div class="view" id="vSort">
+<div class="sf">
+<input type="text" id="fProd" placeholder="제품명" oninput="rSort()">
+<input type="text" id="fLot" placeholder="로트" oninput="rSort()" style="max-width:80px">
+<select id="fFac" onchange="rSort()">
+<option value="">전체</option>
+<option value="1공장">1공장</option>
+<option value="2공장">2공장</option>
+<option value="none">미설정</option>
+</select>
+<label class="chk"><input type="checkbox" id="fDone" onchange="rSort()"> 완료포함</label>
+</div>
+<div class="si" id="sInfo"></div>
+<div class="sl" id="sList"></div>
+</div>
+</div>
+<div class="tab-bar">
+<div class="tab active" onclick="swTab('cal')"><span class="icon">📆</span>캘린더</div>
+<div class="tab" onclick="swTab('sort')"><span class="icon">⭐</span>소팅</div>
+</div>
+<div class="mo" id="mOverlay" onclick="clM(event)">
+<div class="md" id="mContent"></div>
+</div>
+<script>
+// ===== 설정 (반드시 본인 값으로 변경!) =====
+const GS_URL='https://script.google.com/macros/s/AKfycbwpPGa5pvOouObcHWqwJbTQgxVQYR8qdQSWhJI38V5rBFRIdWuUZVgjQzkZ-P5bDBT1/exec';
+const WO_ID='1_3PakMet-BwSVLAgnqHN5CS336hrs-L266Rc_aIFFZI';
+// ============================================
+const CAPA={'1공장':20000,'2공장':80000};
+let raw=[],sorted=[],stData={},cY=new Date().getFullYear(),cM=new Date().getMonth();
+
+async function loadAll(){
+  setSt('☁️ 데이터 로드 중...');
+  try{await Promise.all([loadWO(),loadSt()]);
+  proc();render();
+  setSt('✅ 로드 완료 | '+sorted.length+'건 | '+new Date().toLocaleTimeString());
+  }catch(e){setSt('❌ 실패: '+e.message);}
+}
+async function loadWO(){
+  const r=await fetch(GS_URL+'?action=getWO&sheetId='+WO_ID);
+  const b=await r.json();
+  if(b.status!=='ok')throw new Error(b.message||'WO fail');
+  const rows=b.data;if(rows.length<2)throw new Error('No data');
+  const hd=rows[1].map(h=>String(h).trim());
+  raw=rows.slice(2).map(row=>{const o={};hd.forEach((h,i)=>o[h]=row[i]!==undefined?row[i]:'');return o;});
+}
+async function loadSt(){
+  const r=await fetch(GS_URL+'?action=getAll');
+  const b=await r.json();
+  if(b.status==='ok'&&b.data){
+    const v=b.data['__outsource_status__'];
+    if(v)stData=typeof v==='string'?JSON.parse(v):v;
+  }
+}
+async function saveSt(){
+  try{await fetch(GS_URL,{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({action:'set',key:'__outsource_status__',value:JSON.stringify(stData)})});
+  }catch(e){console.error(e);}
+}
+function proc(){
+  const f=raw.filter(r=>{const l=String(r['기초로트']||'');const m=String(r['투입자재']||'');return!l.startsWith('J')&&/^[AS]/.test(m);});
+  const g={};
+  f.forEach(r=>{const k=r['제품명']+'||'+r['기초로트'];
+    if(!g[k])g[k]={'제품명':String(r['제품명']),'기초로트':String(r['기초로트']),'오더수량':0,'WO시간':r['WO시간']};
+    g[k]['오더수량']+=parseInt(String(r['투입수량']||'0').replace(/,/g,''))||0;
+  });
+  sorted=Object.values(g).sort((a,b)=>{const c=a['제품명'].localeCompare(b['제품명']);return c!==0?c:a['기초로트'].localeCompare(b['기초로트']);});
+}
+function gSt(p,l){const k=p+'||'+l;return stData[k]||{'현황':'','생산완료':false,'생산일자':'','납품요청일자':'','입고예정일':'','긴급':false,'메모':''};}
+function sSt(p,l,f,v){const k=p+'||'+l;
+  if(!stData[k])stData[k]={'현황':'','생산완료':false,'생산일자':'','납품요청일자':'','입고예정일':'','긴급':false,'메모':''};
+  stData[k][f]=v;saveSt();render();
+}
+function setSt(m){document.getElementById('sbar').textContent=m;}
+function swTab(t){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.tab-bar .tab').forEach(t=>t.classList.remove('active'));
+  if(t==='cal'){document.getElementById('vCal').classList.add('active');document.querySelectorAll('.tab-bar .tab')[0].classList.add('active');}
+  else{document.getElementById('vSort').classList.add('active');document.querySelectorAll('.tab-bar .tab')[1].classList.add('active');}
+}
+function render(){rCal();rSort();}
+function calP(){cM--;if(cM<0){cM=11;cY--;}rCal();}
+function calN(){cM++;if(cM>11){cM=0;cY++;}rCal();}
+function calT(){const d=new Date();cY=d.getFullYear();cM=d.getMonth();rCal();}
+function getSch(){
+  const sc={};
+  sorted.forEach(item=>{
+    const st=gSt(item['제품명'],item['기초로트']);
+    const fac=st['현황'],ds=st['생산일자'];
+    if(!['1공장','2공장'].includes(fac)||!ds)return;
+    const cap=CAPA[fac];let dates=[];
+    if(ds.includes('~')){const[s,e]=ds.split('~').map(d=>new Date(d.trim()));if(isNaN(s)||isNaN(e))return;for(let d=new Date(s);d<=e;d.setDate(d.getDate()+1))dates.push(new Date(d));}
+    else{const d=new Date(ds);if(!isNaN(d))dates.push(d);}
+    let rem=item['오더수량'];
+    dates.forEach(day=>{const dk=day.toISOString().split('T')[0];
+      if(!sc[dk])sc[dk]={'1공장':0,'2공장':0,i1:[],i2:[]};
+      const daily=Math.min(rem,cap);sc[dk][fac]+=daily;
+      sc[dk][fac==='1공장'?'i1':'i2'].push({p:item['제품명'],b:item['기초로트'],q:daily,u:st['긴급'],e:st['입고예정일'],d:st['생산완료']});
+      rem-=daily;
+    });
+  });
+  return sc;
+}
+function rCal(){
+  document.getElementById('calLbl').textContent=cY+'년 '+(cM+1)+'월';
+  const sc=getSch(),td=new Date(),fd=new Date(cY,cM,1),sd=(fd.getDay()+6)%7,dim=new Date(cY,cM+1,0).getDate();
+  const wd=['월','화','수','목','금','토','일'];
+  let h='<div class="cal-grid">';
+  wd.forEach((w,i)=>h+='<div class="cal-hdr'+(i>=5?' we':'')+'">'+w+'</div>');
+  let day=1;
+  for(let row=0;row<6;row++){
+    if(day>dim&&row>0)break;
+    for(let col=0;col<7;col++){
+      if((row===0&&col<sd)||day>dim){h+='<div class="cal-c empty"></div>';}
+      else{
+        const dt=new Date(cY,cM,day),dk=dt.toISOString().split('T')[0];
+        const isT=dt.toDateString()===td.toDateString();
+        const info=sc[dk];
+        h+='<div class="cal-c'+(isT?' today':'')+'" onclick="showDay(\''+dk+'\')"><div class="dn">'+day+'</div>';
+        if(info){
+          ['1공장','2공장'].forEach(fc=>{const q=info[fc];if(!q)return;const cp=CAPA[fc],rt=q/cp*100,cl=rt>100?'#F44336':rt>=80?'#FF9800':'#4CAF50';
+            h+='<div class="capa-b"><div class="fill" style="width:'+Math.min(rt,100)+'%;background:'+cl+'"></div></div>';});
+          const items=[...info.i1.map(i=>({...i,f:'f1'})),...info.i2.map(i=>({...i,f:'f2'}))];
+          items.slice(0,3).forEach(it=>{const nm=it.p.length>7?it.p.slice(0,7)+'…':it.p;
+            h+='<div class="cal-it '+it.f+(it.u?' urg':'')+(it.d?' done':'')+'">'+(it.u?'🚨':'')+nm+' '+it.q.toLocaleString()+'</div>';});
+          if(items.length>3)h+='<div style="font-size:8px;color:#999">+'+(items.length-3)+'</div>';
+        }
+        h+='</div>';day++;
+      }
+    }
+  }
+  h+='</div>';document.getElementById('calG').innerHTML=h;
+}
+function showDay(dk){
+  const sc=getSch(),info=sc[dk];if(!info)return;
+  const items=[...info.i1.map(i=>({...i,fc:'1공장'})),...info.i2.map(i=>({...i,fc:'2공장'}))];
+  if(!items.length)return;
+  let h='<h3>📆 '+dk+'</h3>';
+  ['1공장','2공장'].forEach(fc=>{const q=info[fc];if(!q)return;const cp=CAPA[fc],rt=(q/cp*100).toFixed(1),cl=rt>100?'#F44336':rt>=80?'#FF9800':'#4CAF50';
+    h+='<div style="margin:8px 0;padding:8px;background:#f5f5f5;border-radius:8px"><strong>'+fc+'</strong>: <span style="color:'+cl+'">'+q.toLocaleString()+'/'+cp.toLocaleString()+' ('+rt+'%)</span>';
+    h+='<div class="capa-b"><div class="fill" style="width:'+Math.min(rt,100)+'%;background:'+cl+'"></div></div></div>';});
+  h+='<div style="margin-top:10px">';
+  items.forEach(it=>{const cl=it.fc==='1공장'?'#1565C0':'#2E7D32';
+    h+='<div style="padding:8px;margin:4px 0;border-left:3px solid '+cl+';background:#fafafa;border-radius:6px;font-size:13px">';
+    h+=(it.u?'🚨 ':'')+(it.d?'✅ ':'')+'<strong>'+it.p+'</strong> ('+it.b+') <span style="color:'+cl+'">'+it.q.toLocaleString()+'개</span>';
+    if(it.e)h+=' 📦'+it.e;
+    h+='</div>';});
+  h+='</div><div class="brow"><button class="btn bc" onclick="clM()">닫기</button></div>';
+  shM(h);
+}
+function rSort(){
+  const fp=document.getElementById('fProd').value.toUpperCase();
+  const fl=document.getElementById('fLot').value.toUpperCase();
+  const ff=document.getElementById('fFac').value;
+  const fd=document.getElementById('fDone').checked;
+  let shown=0,total=sorted.length,comp=0,urg=0;
+  let h='';
+  sorted.forEach(item=>{
+    const p=item['제품명'],b=item['기초로트'];
+    const st=gSt(p,b),isDone=st['생산완료'],isUrg=st['긴급'],cur=st['현황'];
+    if(isDone)comp++;if(isUrg&&!isDone)urg++;
+    if(fp&&!p.toUpperCase().includes(fp))return;
+    if(fl&&!b.toUpperCase().includes(fl))return;
+    if(ff==='none'&&['1공장','2공장'].includes(cur))return;
+    if(ff&&ff!=='none'&&cur!==ff)return;
+    if(isDone&&!fd)return;
+    shown++;
+    const isFac=['1공장','2공장'].includes(cur);
+    h+='<div class="si-card'+(isUrg&&!isDone?' urg':'')+(isDone?' comp':'')+'">';
+    h+='<div class="top"><div><span class="pn">'+p+'</span><span class="li">'+b+'</span></div>';
+    h+='<div><span class="qt">'+item['오더수량'].toLocaleString()+'</span>';
+    h+=' <span onclick="sSt(\''+p+'\',\''+b+'\',\'긴급\','+(isUrg?'false':'true')+')" style="cursor:pointer;font-size:18px">'+(isUrg?'🚨':'⬜')+'</span></div></div>';
+    h+='<div class="sr">';
+    h+='<span class="sc'+(isFac?' on':'')+'" onclick="cyFac(\''+p+'\',\''+b+'\')">🏭 '+(isFac?cur:'생산중')+'</span>';
+    ['SPC NG','OQC NG','기타'].forEach(s=>{const cn=cur===s?'on '+(s==='SPC NG'?'spc':s==='OQC NG'?'oqc':'etc'):'';
+      h+='<span class="sc '+cn+'" onclick="tgSt(\''+p+'\',\''+b+'\',\''+s+'\')">' +s+'</span>';});
+    h+='<span class="sc'+(isDone?' on dn':'')+'" onclick="sSt(\''+p+'\',\''+b+'\',\'생산완료\','+(isDone?'false':'true')+')">' +'✅</span></div>';
+    h+='<div class="dr">';
+    h+='<span class="df'+(st['생산일자']?'':' empty')+'" onclick="eDate(\''+p+'\',\''+b+'\',\'생산일자\')">📅 '+(st['생산일자']||'생산일자')+'</span>';
+    h+='<span class="df'+(st['납품요청일자']?'':' empty')+'" onclick="eDate(\''+p+'\',\''+b+'\',\'납품요청일자\')">📦 '+(st['납품요청일자']||'납품요청')+'</span>';
+    h+='<span class="df'+(st['입고예정일']?'':' empty')+'" onclick="eDate(\''+p+'\',\''+b+'\',\'입고예정일\')">🚚 '+(st['입고예정일']||'입고예정')+'</span>';
+    h+='</div>';
+    const memo=st['메모'];
+    if(memo){const md=memo.replace(/\n/g,' ').slice(0,30);h+='<div class="mp" onclick="eMemo(\''+p+'\',\''+b+'\')">' +'📝 '+md+(memo.length>30?'…':'')+'</div>';}
+    else h+='<div class="mp" onclick="eMemo(\''+p+'\',\''+b+'\')" style="color:#ccc">📝 메모 추가</div>';
+    h+='</div>';
+  });
+  document.getElementById('sList').innerHTML=h||'<div class="loading">표시할 항목 없음</div>';
+  let info='전체 '+total+' | 진행 '+(total-comp)+' | 완료 '+comp;
+  if(urg)info+=' | 🚨'+urg;
+  if(shown<total-comp||fd)info='🔍 '+shown+'건 / '+info;
+  document.getElementById('sInfo').textContent=info;
+}
+function cyFac(p,b){const st=gSt(p,b),c=st['현황'];let n;if(c==='1공장')n='2공장';else if(c==='2공장')n='';else n='1공장';sSt(p,b,'현황',n);}
+function tgSt(p,b,s){const st=gSt(p,b);sSt(p,b,'현황',st['현황']===s?'':s);}
+function eDate(p,b,f){
+  const st=gSt(p,b),cur=st[f]||'';
+  const labels={'생산일자':'📅 생산일자','납품요청일자':'📦 납품요청일자','입고예정일':'🚚 입고예정일'};
+  let sv=cur;if(cur.includes('~'))sv=cur.split('~')[0];
+  let h='<h3>'+labels[f]+'</h3><div class="sub">'+p+' / '+b+'</div>';
+  h+='<input type="date" id="mDI" value="'+sv+'">';
+  if(f==='생산일자'&&['1공장','2공장'].includes(st['현황'])){
+    const cap=CAPA[st['현황']],qty=sorted.find(i=>i['제품명']===p&&i['기초로트']===b)?.['오더수량']||0;
+    const days=Math.ceil(qty/cap);
+    if(days>1){h+='<div style="margin-top:8px;font-size:12px;color:#1565C0">📌 '+st['현황']+': '+qty.toLocaleString()+' / CAPA '+cap.toLocaleString()+' = '+days+'일';
+      h+='<div style="margin-top:4px">생산일수: <input type="number" id="mDN" value="'+days+'" min="1" max="99" style="width:70px;padding:6px;border:1px solid #ddd;border-radius:8px"></div></div>';}
+  }
+  h+='<div class="brow"><button class="btn bp" onclick="svDate(\''+p+'\',\''+b+'\',\''+f+'\')">' +'✅ 저장</button>';
+  h+='<button class="btn bd" onclick="sSt(\''+p+'\',\''+b+'\',\''+f+'\',\'\');clM()">🗑 해제</button>';
+  h+='<button class="btn bc" onclick="clM()">취소</button></div>';
+  shM(h);
+}
+function svDate(p,b,f){
+  const v=document.getElementById('mDI').value;if(!v){clM();return;}
+  const dn=document.getElementById('mDN');let res=v;
+  if(dn){const d=parseInt(dn.value)||1;if(d>1){const s=new Date(v),e=new Date(s);e.setDate(e.getDate()+d-1);res=v+'~'+e.toISOString().split('T')[0];}}
+  sSt(p,b,f,res);clM();
+}
+function eMemo(p,b){
+  const st=gSt(p,b);
+  let h='<h3>📝 메모</h3><div class="sub">'+p+' / '+b+'</div>';
+  h+='<textarea id="mMI">'+(st['메모']||'')+'</textarea>';
+  h+='<div class="brow"><button class="btn bp" onclick="sSt(\''+p+'\',\''+b+'\',\'메모\',document.getElementById(\'mMI\').value);clM()">' +'💾 저장</button>';
+  h+='<button class="btn bd" onclick="sSt(\''+p+'\',\''+b+'\',\'메모\',\'\');clM()">🗑 삭제</button>';
+  h+='<button class="btn bc" onclick="clM()">취소</button></div>';
+  shM(h);
+}
+function shM(h){document.getElementById('mContent').innerHTML=h;document.getElementById('mOverlay').classList.add('on');}
+function clM(e){if(e&&e.target&&e.target.id!=='mOverlay')return;document.getElementById('mOverlay').classList.remove('on');}
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+loadAll();
+</script>
+</body>
+</html>
