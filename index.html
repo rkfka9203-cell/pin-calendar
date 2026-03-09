@@ -26,6 +26,11 @@ body{font-family:'Apple SD Gothic Neo','맑은 고딕',sans-serif;background:#f5
 .cal-nav button:active{background:#e0e0e0}
 .cal-nav .month-label{font-size:15px;font-weight:700;min-width:110px;text-align:center}
 .cal-nav .today-btn{font-size:12px;padding:5px 10px;background:#e0e0e0;border-radius:14px;border:none;cursor:pointer}
+/* HTML 기능 버튼 (전체/1공장/2공장/가이드) */
+.fac-bar{padding:8px 10px;background:#fff;display:flex;gap:6px;align-items:center;position:sticky;top:48px;z-index:55;border-bottom:1px solid #e0e0e0}
+.fac-btn{border:1px solid #ddd;background:#f5f5f5;border-radius:16px;padding:6px 10px;font-size:12px;cursor:pointer;user-select:none}
+.fac-btn.on{background:#1565C0;color:#fff;border-color:#1565C0;font-weight:700}
+.fac-btn.guide{margin-left:auto;background:#fff}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:#ddd;margin:0 4px}
 .cal-hdr{background:#E8EAF6;text-align:center;padding:5px 0;font-size:11px;font-weight:700;color:#333}
 .cal-hdr.we{background:#FFEBEE;color:#B71C1C}
@@ -94,6 +99,12 @@ body{font-family:'Apple SD Gothic Neo','맑은 고딕',sans-serif;background:#f5
 <div class="status-bar" id="sbar">데이터 로드 중...</div>
 <div class="content">
 <div class="view active" id="vCal">
+<div class="fac-bar" id="facBarCal">
+  <span class="fac-btn on" onclick="setFacFilter('')">전체</span>
+  <span class="fac-btn" onclick="setFacFilter('1공장')">1공장</span>
+  <span class="fac-btn" onclick="setFacFilter('2공장')">2공장</span>
+  <span class="fac-btn guide" onclick="openGuide()">가이드</span>
+</div>
 <div class="cal-nav">
 <button onclick="calP()">◀</button>
 <span class="month-label" id="calLbl"></span>
@@ -103,6 +114,12 @@ body{font-family:'Apple SD Gothic Neo','맑은 고딕',sans-serif;background:#f5
 <div id="calG"></div>
 </div>
 <div class="view" id="vSort">
+<div class="fac-bar" id="facBarSort">
+  <span class="fac-btn on" onclick="setFacFilter('')">전체</span>
+  <span class="fac-btn" onclick="setFacFilter('1공장')">1공장</span>
+  <span class="fac-btn" onclick="setFacFilter('2공장')">2공장</span>
+  <span class="fac-btn guide" onclick="openGuide()">가이드</span>
+</div>
 <div class="sf">
 <input type="text" id="fProd" placeholder="제품명" oninput="rSort()">
 <input type="text" id="fLot" placeholder="로트" oninput="rSort()" style="max-width:80px">
@@ -132,6 +149,33 @@ const WO_ID='1_3PakMet-BwSVLAgnqHN5CS336hrs-L266Rc_aIFFZI';
 // ============================================
 const CAPA={'1공장':20000,'2공장':80000};
 let raw=[],sorted=[],stData={},cY=new Date().getFullYear(),cM=new Date().getMonth();
+let facFilter=''; // ''=전체, '1공장', '2공장'
+function setFacFilter(v){
+  facFilter=v;
+  // 캘린더/소팅 둘 다 버튼 상태 동기화
+  ['facBarCal','facBarSort'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el) return;
+    el.querySelectorAll('.fac-btn').forEach(b=>b.classList.remove('on'));
+    const btns=el.querySelectorAll('.fac-btn');
+    if(v==='1공장') btns[1]?.classList.add('on');
+    else if(v==='2공장') btns[2]?.classList.add('on');
+    else btns[0]?.classList.add('on');
+  });
+  render();
+}
+function openGuide(){
+  const h='<h3>📘 가이드</h3>'+
+    '<div class="sub">HTML 기능 버튼</div>'+
+    '<div style="font-size:13px;line-height:1.6">'+
+    '• 상단 버튼으로 전체/1공장/2공장 표시를 전환합니다.<br>'+
+    '• 이 필터는 캘린더/소팅 화면에 모두 적용됩니다.<br>'+
+    '• 날짜를 누르면 일자 상세가 표시됩니다.<br>'+
+    '• 🔄 동기화로 최신 데이터를 다시 불러옵니다.'+
+    '</div>'+
+    '<div class="brow"><button class="btn bc" onclick="clM()">닫기</button></div>';
+  shM(h);
+}
 
 async function loadAll(){
   setSt('☁️ 데이터 로드 중...');
@@ -192,7 +236,9 @@ function getSch(){
     const st=gSt(item['제품명'],item['기초로트']);
     const fac=st['현황'],ds=st['생산일자'];
     if(!['1공장','2공장'].includes(fac)||!ds)return;
-    const cap=CAPA[fac];let dates=[];
+    const cap=CAPA[fac];
+    if(facFilter && fac!==facFilter) return;
+    let dates=[];
     if(ds.includes('~')){const[s,e]=ds.split('~').map(d=>new Date(d.trim()));if(isNaN(s)||isNaN(e))return;for(let d=new Date(s);d<=e;d.setDate(d.getDate()+1))dates.push(new Date(d));}
     else{const d=new Date(ds);if(!isNaN(d))dates.push(d);}
     let rem=item['오더수량'];
@@ -267,6 +313,7 @@ function rSort(){
     if(fl&&!b.toUpperCase().includes(fl))return;
     if(ff==='none'&&['1공장','2공장'].includes(cur))return;
     if(ff&&ff!=='none'&&cur!==ff)return;
+    if(facFilter && cur!==facFilter) return;
     if(isDone&&!fd)return;
     shown++;
     const isFac=['1공장','2공장'].includes(cur);
